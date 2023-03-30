@@ -1,0 +1,33 @@
+app.get('/userPortfolio/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Step 1: Retrieve user data
+    const user = await User.findById(userId);
+
+    // Step 2: Calculate net fund added
+    const walletTransactions = await WalletTransaction.find({ userId, type: 'CREDIT', status: 'SUCCESS' });
+    const netFundAdded = walletTransactions.reduce((sum, { amount }) => sum + amount, 0);
+
+    // Step 3: Calculate current fund
+    const currentFund = user.runningBalance.wallet + netFundAdded;
+
+    // Step 4: Calculate net growth or loss
+    const goldTransactions = await GoldTransaction.find({ userId, status: 'SUCCESS' });
+    const netGrowthOrLoss = goldTransactions.reduce((sum, { type, amount }) => type === 'CREDIT' ? sum + amount : sum - amount, 0);
+
+    // Step 5: Calculate gain or loss percentage
+    const gainOrLossPercentage = ((netGrowthOrLoss / currentFund) * 100).toFixed(2);
+
+    // Step 6: Return the response JSON
+    res.json({
+      netFundAdded,
+      currentFund,
+      netGrowthOrLoss,
+      gainOrLossPercentage,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
